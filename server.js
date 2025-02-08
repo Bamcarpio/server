@@ -66,7 +66,7 @@ app.post("/add", async (req, res) => {
     const sheets = await getSheetsClient();
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${sheet}!A:K`, // Store data in columns A to K (adjust as needed)
+      range: `${sheet}!A:M`, // Columns A to M
       valueInputOption: "RAW",
       insertDataOption: "INSERT_ROWS",
       requestBody: {
@@ -78,12 +78,13 @@ app.post("/add", async (req, res) => {
             productName,       // Column D: Product Name
             smer,              // Column E: SMER
             smerUpdatedPrice,  // Column F: SMER Updated Price
-            kgaPrice,          // Column G: KGA Price
+            "",                // Column G: Empty space
             size,              // Column H: Size (Second Size)
-            pictureUrl || "",  // Column I: Picture URL
-            shopLink,          // Column J: Shop Link
-            lazadaLink,        // Column K: Lazada Link
-            tiktokLink         // Column L: TikTok Link
+            kgaPrice,          // Column I: KGA Price
+            pictureUrl || "",  // Column J: Picture URL (Placeholder for now)
+            shopLink,          // Column K: Shop Link
+            lazadaLink,        // Column L: Lazada Link
+            tiktokLink         // Column M: TikTok Link
           ]
         ],
       },
@@ -94,6 +95,7 @@ app.post("/add", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
 
 
 
