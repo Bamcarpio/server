@@ -23,19 +23,20 @@ async function getSheetsClient() {
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 const SHEET_NAME = "Sheet1";
 
-// Fetch all data from Google Sheets
+// Fetch data from Google Sheets - A3 to B5
 app.get("/data", async (req, res) => {
   try {
     const sheets = await getSheetsClient();
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEET_NAME}!A:B`,
+      range: `${SHEET_NAME}!A3:B5`, // Only fetch rows from A3 to B5
     });
     res.json(response.data.values || []);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
+
 
 // Add new row
 app.post("/add", async (req, res) => {
