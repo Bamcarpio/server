@@ -2,7 +2,9 @@ import express from "express";
 import { google } from "googleapis";
 import cors from "cors";
 import bodyParser from "body-parser";
-const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+import fs from "fs";
+
+const credentials = JSON.parse(fs.readFileSync("/etc/secrets/serviceAccount.json", "utf8"));
 
 
 const app = express();
@@ -19,8 +21,22 @@ async function getSheetsClient() {
   return google.sheets({ version: "v4", auth });
 }
 
-const SPREADSHEET_ID = "YOUR_SPREADSHEET_ID"; // Replace with your actual spreadsheet ID
-const SHEET_NAME = "Sheet1"; // Name of the sheet
+const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
+const SHEET_NAME = "Sheet1";
+
+// Fetch all data from Google Sheets
+app.get("/data", async (req, res) => {
+  try {
+    const sheets = await getSheetsClient();
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEET_NAME}!A:B`,
+    });
+    res.json(response.data.values || []);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // Add new row
 app.post("/add", async (req, res) => {
@@ -29,17 +45,15 @@ app.post("/add", async (req, res) => {
     if (!text) return res.status(400).json({ error: "Text is required" });
 
     const sheets = await getSheetsClient();
-    const response = await sheets.spreadsheets.values.append({
+    await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
       range: `${SHEET_NAME}!A:B`,
       valueInputOption: "RAW",
       insertDataOption: "INSERT_ROWS",
-      resource: {
-        values: [[Date.now(), text]], // Using timestamp as ID
-      },
+      requestBody: { values: [[Date.now(), text]] },
     });
 
-    res.json({ message: "Added successfully", data: response.data });
+    res.json({ message: "Added successfully!" });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -63,16 +77,16 @@ app.post("/edit", async (req, res) => {
     let rowIndex = rows.findIndex(row => row[0] === id.toString());
     if (rowIndex === -1) return res.status(404).json({ error: "ID not found" });
 
-    rowIndex += 1; // Adjusting for 1-based index in Google Sheets API
+    rowIndex += 1;
 
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
       range: `${SHEET_NAME}!B${rowIndex}`,
       valueInputOption: "RAW",
-      resource: { values: [[text]] },
+      requestBody: { values: [[text]] },
     });
 
-    res.json({ message: "Edited successfully" });
+    res.json({ message: "Edited successfully!" });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
