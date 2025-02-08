@@ -2,7 +2,8 @@ import express from "express";
 import { google } from "googleapis";
 import cors from "cors";
 import bodyParser from "body-parser";
-import credentials from "./serviceAccount.js"; // Your Google Service Account
+const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+
 
 const app = express();
 const port = process.env.PORT || 3001;
