@@ -42,11 +42,22 @@ app.get("/data", async (req, res) => {
   }
 });
 
-// Add new row
-// Add new row
 app.post("/add", async (req, res) => {
   try {
-    const { sheet, sku, size, code, productName, smer, smerUpdatedPrice, kgaPrice, picture, shopLink, lazadaLink, tiktokLink } = req.body;
+    const {
+      sheet,
+      sku,
+      size,
+      code,
+      productName,
+      smer,
+      smerUpdatedPrice,
+      kgaPrice,
+      pictureUrl, // Handle picture URL
+      shopLink,
+      lazadaLink,
+      tiktokLink,
+    } = req.body;
 
     if (!sheet || !sku || !size || !code || !productName) {
       return res.status(400).json({ error: "All product fields are required" });
@@ -55,23 +66,24 @@ app.post("/add", async (req, res) => {
     const sheets = await getSheetsClient();
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${sheet}!A:D`, // Adjust the range to your desired columns
+      range: `${sheet}!A:K`, // Store data in columns A to K (adjust as needed)
       valueInputOption: "RAW",
       insertDataOption: "INSERT_ROWS",
       requestBody: {
         values: [
           [
             sku,               // Column A: SKU
-            size,              // Column B: Size
+            size,              // Column B: Size (First Size)
             code,              // Column C: Code
             productName,       // Column D: Product Name
             smer,              // Column E: SMER
             smerUpdatedPrice,  // Column F: SMER Updated Price
             kgaPrice,          // Column G: KGA Price
-            picture ? picture.name : "", // Column H: Picture (if applicable)
-            shopLink,          // Column I: Shop Link
-            lazadaLink,        // Column J: Lazada Link
-            tiktokLink         // Column K: TikTok Link
+            size,              // Column H: Size (Second Size)
+            pictureUrl || "",  // Column I: Picture URL
+            shopLink,          // Column J: Shop Link
+            lazadaLink,        // Column K: Lazada Link
+            tiktokLink         // Column L: TikTok Link
           ]
         ],
       },
@@ -82,6 +94,7 @@ app.post("/add", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
 
 
 // Edit existing row
