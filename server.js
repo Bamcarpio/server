@@ -3,7 +3,6 @@ import { google } from "googleapis";
 import cors from "cors";
 import bodyParser from "body-parser";
 import fs from "fs";
-
 const credentials = JSON.parse(fs.readFileSync("/etc/secrets/serviceAccount.json", "utf8"));
 
 
