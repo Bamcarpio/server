@@ -31,11 +31,15 @@ app.get("/data", async (req, res) => {
       spreadsheetId: SPREADSHEET_ID,
       range: `${SHEET_NAME}!A3:B5`, // Only fetch rows from A3 to B5
     });
-    res.json(response.data.values || []);
+
+    // Ensure the data is returned as an array of arrays
+    const values = response.data.values || [];
+    res.json(values);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
+
 
 
 // Add new row
