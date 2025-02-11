@@ -3,6 +3,7 @@ import { google } from "googleapis";
 import cors from "cors";
 import bodyParser from "body-parser";
 import fs from "fs";
+
 const credentials = JSON.parse(fs.readFileSync("/etc/secrets/serviceAccount.json", "utf8"));
 
 const app = express();
@@ -33,10 +34,10 @@ app.get("/data", async (req, res) => {
     const sheets = await getSheetsClient();
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: ${sheet}!${range}, // Use dynamic sheet name and range
+      range: `${sheet}!${range}`, // Fixed template literal
     });
 
-    res.json(response.data.values || []); // Return the data as an array
+    res.json(response.data.values || []);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -66,25 +67,25 @@ app.post("/add", async (req, res) => {
     const sheets = await getSheetsClient();
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
-      range: ${sheet}!A:M, // Columns A to M
+      range: `${sheet}!A:M`, // Fixed template literal
       valueInputOption: "RAW",
       insertDataOption: "INSERT_ROWS",
       requestBody: {
         values: [
           [
-            sku,               // Column A: SKU
-            size,              // Column B: Size (First Size)
-            code,              // Column C: Code
-            productName,       // Column D: Product Name
-            smer,              // Column E: SMER
-            smerUpdatedPrice,  // Column F: SMER Updated Price
-            "",                // Column G: Empty space
-            size,              // Column H: Size (Second Size)
-            kgaPrice,          // Column I: KGA Price
-            pictureUrl || "",  // Column J: Picture URL (Placeholder for now)
-            shopLink,          // Column K: Shop Link
-            lazadaLink,        // Column L: Lazada Link
-            tiktokLink         // Column M: TikTok Link
+            sku,              
+            size,             
+            code,             
+            productName,      
+            smer,             
+            smerUpdatedPrice, 
+            "",               
+            size,             
+            kgaPrice,         
+            pictureUrl || "", 
+            shopLink,         
+            lazadaLink,       
+            tiktokLink        
           ]
         ],
       },
@@ -95,7 +96,6 @@ app.post("/add", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-
 
 app.post("/delete", async (req, res) => {
   try {
@@ -119,13 +119,13 @@ app.post("/delete", async (req, res) => {
     // Fetch all rows to find the exact SKU match
     const readResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: ${sheet}!A:M, // Make sure this includes all your rows
+      range: `${sheet}!A:M`, // Fixed template literal
     });
 
     const rows = readResponse.data.values;
     if (!rows || rows.length === 0) return res.status(404).json({ error: "No data found" });
 
-    // Find the row index based on SKU (ensure we find exact match)
+    // Find the row index based on SKU
     let rowIndex = -1;
     for (let i = 0; i < rows.length; i++) {
       if (rows[i][0] === sku) {
@@ -136,8 +136,8 @@ app.post("/delete", async (req, res) => {
 
     if (rowIndex === -1) return res.status(404).json({ error: "SKU not found" });
 
-    // Convert to actual row number in Google Sheets (since first row is 1-based)
-    const actualRowNumber = rowIndex + 1; // No more shifting issue
+    // Convert to actual row number in Google Sheets (1-based index)
+    const actualRowNumber = rowIndex + 1;
 
     // Delete the exact row found
     await sheets.spreadsheets.batchUpdate({
@@ -147,10 +147,10 @@ app.post("/delete", async (req, res) => {
           {
             deleteDimension: {
               range: {
-                sheetId: sheetId, // Correctly retrieved sheet ID
+                sheetId: sheetId, 
                 dimension: "ROWS",
-                startIndex: actualRowNumber - 1, // Zero-based index
-                endIndex: actualRowNumber, // Ensure correct row is deleted
+                startIndex: actualRowNumber - 1, 
+                endIndex: actualRowNumber, 
               },
             },
           },
@@ -158,15 +158,12 @@ app.post("/delete", async (req, res) => {
       },
     });
 
-    res.json({ message: Deleted row ${actualRowNumber} successfully! });
+    res.json({ message: `Deleted row ${actualRowNumber} successfully!` });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-
-
-// Edit existing row
 app.post("/edit", async (req, res) => {
   try {
     const { sheet, id, text } = req.body;
@@ -175,7 +172,7 @@ app.post("/edit", async (req, res) => {
     const sheets = await getSheetsClient();
     const readResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: ${sheet}!A:B, // Change the range to suit your sheet
+      range: `${sheet}!A:B`, // Fixed template literal
     });
 
     const rows = readResponse.data.values;
@@ -188,7 +185,7 @@ app.post("/edit", async (req, res) => {
 
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: ${sheet}!B${rowIndex},
+      range: `${sheet}!B${rowIndex}`, // Fixed template literal
       valueInputOption: "RAW",
       requestBody: { values: [[text]] },
     });
@@ -200,5 +197,5 @@ app.post("/edit", async (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(Server running on port ${port});
+  console.log(`Server running on port ${port}`);
 });
