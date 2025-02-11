@@ -2,6 +2,8 @@ import express from "express";
 import { google } from "googleapis";
 import cors from "cors";
 import bodyParser from "body-parser";
+import multer from "multer";
+import multerGoogleDrive from "multer-google-drive";
 import fs from "fs";
 
 const credentials = JSON.parse(fs.readFileSync("/etc/secrets/serviceAccount.json", "utf8"));
@@ -12,17 +14,26 @@ const port = process.env.PORT || 3001;
 app.use(cors());
 app.use(bodyParser.json());
 
-async function getSheetsClient() {
-  const auth = new google.auth.GoogleAuth({
-    credentials,
-    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-  });
-  return google.sheets({ version: "v4", auth });
-}
+const auth = new google.auth.GoogleAuth({
+  credentials,
+  scopes: ["https://www.googleapis.com/auth/drive", "https://www.googleapis.com/auth/spreadsheets"],
+});
+
+const drive = google.drive({ version: "v3", auth });
+const sheets = google.sheets({ version: "v4", auth });
 
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
+const GOOGLE_DRIVE_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID; // Google Drive folder ID
 
-// Function to convert Google Drive file links to direct image URLs
+// Multer setup for Google Drive
+const upload = multer({
+  storage: multerGoogleDrive({
+    drive,
+    folder: GOOGLE_DRIVE_FOLDER_ID,
+    mimetype: "image/jpeg",
+  }),
+});
+
 const convertDriveLink = (url) => {
   if (!url) return ""; 
   const match = url.match(/\/d\/(.*?)\/view/);
@@ -30,19 +41,17 @@ const convertDriveLink = (url) => {
 };
 
 
-// Fetch data from Google Sheets with dynamic sheet name and range
+// Fetch data from Google Sheets and convert image links
 app.get("/data", async (req, res) => {
   try {
     const { sheet, range } = req.query;
-
     if (!sheet || !range) {
       return res.status(400).json({ error: "Sheet name and range are required" });
     }
 
-    const sheets = await getSheetsClient();
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${sheet}!${range}`, // Ensure correct format
+      range: `${sheet}!${range}`,
     });
 
     let data = response.data.values || [];
@@ -59,67 +68,26 @@ app.get("/data", async (req, res) => {
   }
 });
 
-// Add new product to Google Sheets
-app.post("/add", async (req, res) => {
+// Upload file and return the Google Drive link
+app.post("/upload", upload.single("image"), async (req, res) => {
   try {
-    const {
-      sheet,
-      sku,
-      size,
-      code,
-      productName,
-      smer,
-      smerUpdatedPrice,
-      kgaPrice,
-      pictureUrl, // Handle picture URL
-      shopLink,
-      lazadaLink,
-      tiktokLink,
-    } = req.body;
+    const fileId = req.file.id;
+    const driveLink = `https://drive.google.com/uc?export=view&id=${fileId}`;
 
-    if (!sheet || !sku || !size || !code || !productName) {
-      return res.status(400).json({ error: "All product fields are required" });
-    }
-
-    const sheets = await getSheetsClient();
-    await sheets.spreadsheets.values.append({
-      spreadsheetId: SPREADSHEET_ID,
-      range: `${sheet}!A:M`, // Fixed template literal
-      valueInputOption: "RAW",
-      insertDataOption: "INSERT_ROWS",
-      requestBody: {
-        values: [
-          [
-            sku, size, code, productName, smer, smerUpdatedPrice, "", size, kgaPrice, 
-            pictureUrl || "", shopLink, lazadaLink, tiktokLink
-          ]
-        ],
-      },
-    });
-
-    res.json({ message: "Added successfully!" });
+    res.json({ success: true, driveLink });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Delete a product row by SKU
-app.post("/delete", async (req, res) => {
+// Save image link to Google Sheets
+app.post("/save-image-link", async (req, res) => {
   try {
-    const { sheet, sku } = req.body;
-    if (!sheet || !sku) {
-      return res.status(400).json({ error: "Sheet and SKU are required" });
+    const { sheet, sku, pictureUrl } = req.body;
+
+    if (!sheet || !sku || !pictureUrl) {
+      return res.status(400).json({ error: "Sheet, SKU, and Picture URL are required" });
     }
-
-    const sheets = await getSheetsClient();
-    const sheetMetadata = await sheets.spreadsheets.get({
-      spreadsheetId: SPREADSHEET_ID,
-    });
-
-    const sheetInfo = sheetMetadata.data.sheets.find(s => s.properties.title === sheet);
-    if (!sheetInfo) return res.status(404).json({ error: "Sheet not found" });
-
-    const sheetId = sheetInfo.properties.sheetId;
 
     const readResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
@@ -127,72 +95,22 @@ app.post("/delete", async (req, res) => {
     });
 
     const rows = readResponse.data.values;
-    if (!rows || rows.length === 0) return res.status(404).json({ error: "No data found" });
-
-    let rowIndex = -1;
-    for (let i = 0; i < rows.length; i++) {
-      if (rows[i][0] === sku) {
-        rowIndex = i;
-        break;
-      }
-    }
-
-    if (rowIndex === -1) return res.status(404).json({ error: "SKU not found" });
-
-    const actualRowNumber = rowIndex + 1;
-
-    await sheets.spreadsheets.batchUpdate({
-      spreadsheetId: SPREADSHEET_ID,
-      requestBody: {
-        requests: [
-          {
-            deleteDimension: {
-              range: {
-                sheetId: sheetId,
-                dimension: "ROWS",
-                startIndex: actualRowNumber - 1,
-                endIndex: actualRowNumber,
-              },
-            },
-          },
-        ],
-      },
-    });
-
-    res.json({ message: `Deleted row ${actualRowNumber} successfully!` });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Edit an existing row
-app.post("/edit", async (req, res) => {
-  try {
-    const { sheet, id, text } = req.body;
-    if (!sheet || !id || !text) return res.status(400).json({ error: "Sheet, ID, and Text are required" });
-
-    const sheets = await getSheetsClient();
-    const readResponse = await sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: `${sheet}!A:B`, 
-    });
-
-    const rows = readResponse.data.values;
     if (!rows) return res.status(404).json({ error: "No data found" });
 
-    let rowIndex = rows.findIndex(row => row[0] === id.toString());
-    if (rowIndex === -1) return res.status(404).json({ error: "ID not found" });
+    let rowIndex = rows.findIndex(row => row[0] === sku);
+    if (rowIndex === -1) return res.status(404).json({ error: "SKU not found" });
 
-    rowIndex += 1;
+    rowIndex += 1; // Convert to 1-based index
 
+    // Update column J (index 9)
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${sheet}!B${rowIndex}`,
+      range: `${sheet}!J${rowIndex}`,
       valueInputOption: "RAW",
-      requestBody: { values: [[text]] },
+      requestBody: { values: [[pictureUrl]] },
     });
 
-    res.json({ message: "Edited successfully!" });
+    res.json({ message: "Image link saved successfully!" });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
