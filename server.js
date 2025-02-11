@@ -42,7 +42,6 @@ app.get("/data", async (req, res) => {
   }
 });
 
-
 app.post("/add", async (req, res) => {
   try {
     const {
@@ -67,7 +66,7 @@ app.post("/add", async (req, res) => {
     const sheets = await getSheetsClient();
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${sheet}!A:M`, // Columns A to M
+      range: ${sheet}!A:M, // Columns A to M
       valueInputOption: "RAW",
       insertDataOption: "INSERT_ROWS",
       requestBody: {
@@ -120,7 +119,7 @@ app.post("/delete", async (req, res) => {
     // Fetch all rows to find the exact SKU match
     const readResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${sheet}!A:M`, // Make sure this includes all your rows
+      range: ${sheet}!A:M, // Make sure this includes all your rows
     });
 
     const rows = readResponse.data.values;
@@ -159,7 +158,7 @@ app.post("/delete", async (req, res) => {
       },
     });
 
-    res.json({ message: `Deleted row ${actualRowNumber} successfully!` });
+    res.json({ message: Deleted row ${actualRowNumber} successfully! });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -176,7 +175,7 @@ app.post("/edit", async (req, res) => {
     const sheets = await getSheetsClient();
     const readResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${sheet}!A:B`, // Change the range to suit your sheet
+      range: ${sheet}!A:B, // Change the range to suit your sheet
     });
 
     const rows = readResponse.data.values;
@@ -189,7 +188,7 @@ app.post("/edit", async (req, res) => {
 
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${sheet}!B${rowIndex}`,
+      range: ${sheet}!B${rowIndex},
       valueInputOption: "RAW",
       requestBody: { values: [[text]] },
     });
@@ -201,5 +200,5 @@ app.post("/edit", async (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+  console.log(Server running on port ${port});
 });
