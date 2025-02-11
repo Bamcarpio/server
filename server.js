@@ -24,10 +24,11 @@ const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 
 // Function to convert Google Drive file links to direct image URLs
 const convertDriveLink = (url) => {
-  if (!url) return ""; // Return empty if no URL
+  if (!url) return ""; 
   const match = url.match(/\/d\/(.*?)\/view/);
-  return match ? `https://drive.google.com/uc?export=view&id=${match[1]}` : url;
+  return match ? `https://lh3.googleusercontent.com/d/${match[1]}=w500` : url;
 };
+
 
 // Fetch data from Google Sheets with dynamic sheet name and range
 app.get("/data", async (req, res) => {
