@@ -33,28 +33,10 @@ app.get("/data", async (req, res) => {
     const sheets = await getSheetsClient();
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${sheet}!${range}`, // Use dynamic sheet name and range
+      range: ${sheet}!${range}, // Use dynamic sheet name and range
     });
 
-    const data = response.data.values || [];
-
-    // Format the data to ensure each row has the correct structure
-    const formattedData = data.map(row => ({
-      sku: row[0] || "",
-      size: row[1] || "",
-      code: row[2] || "",
-      productName: row[3] || "",
-      smer: row[4] || "",
-      smerUpdatedPrice: row[5] || "",
-      size2: row[7] || "",
-      kgaPrice: row[8] || "",
-      pictureUrl: row[9] || "", // Fetching the picture link from column J
-      shopLink: row[10] || "",
-      lazadaLink: row[11] || "",
-      tiktokLink: row[12] || "",
-    }));
-
-    res.json(formattedData);
+    res.json(response.data.values || []); // Return the data as an array
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
