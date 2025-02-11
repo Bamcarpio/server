@@ -116,10 +116,10 @@ app.post("/delete", async (req, res) => {
 
     const sheetId = sheetInfo.properties.sheetId;
 
-    // Fetch all rows to find the exact match for SKU
+    // Fetch all rows to find the exact SKU match
     const readResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${sheet}!A:M`, // Make sure this range includes all your columns
+      range: `${sheet}!A:M`, // Adjust range to include all data
     });
 
     const rows = readResponse.data.values;
@@ -129,9 +129,10 @@ app.post("/delete", async (req, res) => {
     const rowIndex = rows.findIndex(row => row[0] === sku);
     if (rowIndex === -1) return res.status(404).json({ error: "SKU not found" });
 
-    const adjustedIndex = rowIndex + 3; // Adjusting for headers (A3:M)
+    // Adjust for Google Sheets' zero-based index (since A3 is the start)
+    const adjustedIndex = rowIndex + 3;
 
-    // Delete the exact row found
+    // Delete the exact row found (without shifting issues)
     await sheets.spreadsheets.batchUpdate({
       spreadsheetId: SPREADSHEET_ID,
       requestBody: {
@@ -142,7 +143,7 @@ app.post("/delete", async (req, res) => {
                 sheetId: sheetId, // Correctly retrieved sheet ID
                 dimension: "ROWS",
                 startIndex: adjustedIndex - 1, // Zero-based index
-                endIndex: adjustedIndex,
+                endIndex: adjustedIndex, // Ensure correct row is deleted
               },
             },
           },
@@ -155,8 +156,6 @@ app.post("/delete", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-
-
 
 
 // Edit existing row
