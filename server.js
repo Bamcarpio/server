@@ -114,23 +114,24 @@ app.post("/delete", async (req, res) => {
     const sheetInfo = sheetMetadata.data.sheets.find(s => s.properties.title === sheet);
     if (!sheetInfo) return res.status(404).json({ error: "Sheet not found" });
 
-    const sheetId = sheetInfo.properties.sheetId; // Get the correct sheet ID
+    const sheetId = sheetInfo.properties.sheetId;
 
-    // Fetch current data to locate the row
+    // Fetch all rows to find the exact match for SKU
     const readResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${sheet}!A:M`, // Adjust range if needed
+      range: `${sheet}!A:M`, // Make sure this range includes all your columns
     });
 
     const rows = readResponse.data.values;
-    if (!rows) return res.status(404).json({ error: "No data found" });
+    if (!rows || rows.length === 0) return res.status(404).json({ error: "No data found" });
 
-    let rowIndex = rows.findIndex(row => row[0] === sku);
+    // Find the row index with the exact SKU match
+    const rowIndex = rows.findIndex(row => row[0] === sku);
     if (rowIndex === -1) return res.status(404).json({ error: "SKU not found" });
 
-    rowIndex += 3; // Adjust for headers (A3:M)
+    const adjustedIndex = rowIndex + 3; // Adjusting for headers (A3:M)
 
-    // Delete the specific row
+    // Delete the exact row found
     await sheets.spreadsheets.batchUpdate({
       spreadsheetId: SPREADSHEET_ID,
       requestBody: {
@@ -138,10 +139,10 @@ app.post("/delete", async (req, res) => {
           {
             deleteDimension: {
               range: {
-                sheetId: sheetId, // Use the dynamically fetched sheet ID
+                sheetId: sheetId, // Correctly retrieved sheet ID
                 dimension: "ROWS",
-                startIndex: rowIndex - 1, // Zero-based index
-                endIndex: rowIndex,
+                startIndex: adjustedIndex - 1, // Zero-based index
+                endIndex: adjustedIndex,
               },
             },
           },
@@ -154,6 +155,7 @@ app.post("/delete", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
 
 
 
