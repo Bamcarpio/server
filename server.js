@@ -105,9 +105,21 @@ app.post("/delete", async (req, res) => {
     }
 
     const sheets = await getSheetsClient();
+
+    // Get the sheet ID dynamically
+    const sheetMetadata = await sheets.spreadsheets.get({
+      spreadsheetId: SPREADSHEET_ID,
+    });
+
+    const sheetInfo = sheetMetadata.data.sheets.find(s => s.properties.title === sheet);
+    if (!sheetInfo) return res.status(404).json({ error: "Sheet not found" });
+
+    const sheetId = sheetInfo.properties.sheetId; // Get the correct sheet ID
+
+    // Fetch current data to locate the row
     const readResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${sheet}!A:M`,
+      range: `${sheet}!A:M`, // Adjust range if needed
     });
 
     const rows = readResponse.data.values;
@@ -116,8 +128,9 @@ app.post("/delete", async (req, res) => {
     let rowIndex = rows.findIndex(row => row[0] === sku);
     if (rowIndex === -1) return res.status(404).json({ error: "SKU not found" });
 
-    rowIndex += 3; // Adjusting for 1-based index + header rows
+    rowIndex += 3; // Adjust for headers (A3:M)
 
+    // Delete the specific row
     await sheets.spreadsheets.batchUpdate({
       spreadsheetId: SPREADSHEET_ID,
       requestBody: {
@@ -125,7 +138,7 @@ app.post("/delete", async (req, res) => {
           {
             deleteDimension: {
               range: {
-                sheetId: 0, // Adjust if using multiple sheets
+                sheetId: sheetId, // Use the dynamically fetched sheet ID
                 dimension: "ROWS",
                 startIndex: rowIndex - 1, // Zero-based index
                 endIndex: rowIndex,
@@ -141,6 +154,7 @@ app.post("/delete", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
 
 
 // Edit existing row
