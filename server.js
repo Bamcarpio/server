@@ -119,20 +119,27 @@ app.post("/delete", async (req, res) => {
     // Fetch all rows to find the exact SKU match
     const readResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${sheet}!A:M`, // Adjust range to include all data
+      range: `${sheet}!A:M`, // Make sure this includes all your rows
     });
 
     const rows = readResponse.data.values;
     if (!rows || rows.length === 0) return res.status(404).json({ error: "No data found" });
 
-    // Find the row index with the exact SKU match
-    const rowIndex = rows.findIndex(row => row[0] === sku);
+    // Find the row index based on SKU (ensure we find exact match)
+    let rowIndex = -1;
+    for (let i = 0; i < rows.length; i++) {
+      if (rows[i][0] === sku) {
+        rowIndex = i;
+        break;
+      }
+    }
+
     if (rowIndex === -1) return res.status(404).json({ error: "SKU not found" });
 
-    // Adjust for Google Sheets' zero-based index (since A3 is the start)
-    const adjustedIndex = rowIndex + 3;
+    // Convert to actual row number in Google Sheets (since first row is 1-based)
+    const actualRowNumber = rowIndex + 1; // No more shifting issue
 
-    // Delete the exact row found (without shifting issues)
+    // Delete the exact row found
     await sheets.spreadsheets.batchUpdate({
       spreadsheetId: SPREADSHEET_ID,
       requestBody: {
@@ -142,8 +149,8 @@ app.post("/delete", async (req, res) => {
               range: {
                 sheetId: sheetId, // Correctly retrieved sheet ID
                 dimension: "ROWS",
-                startIndex: adjustedIndex - 1, // Zero-based index
-                endIndex: adjustedIndex, // Ensure correct row is deleted
+                startIndex: actualRowNumber - 1, // Zero-based index
+                endIndex: actualRowNumber, // Ensure correct row is deleted
               },
             },
           },
@@ -151,11 +158,12 @@ app.post("/delete", async (req, res) => {
       },
     });
 
-    res.json({ message: "Deleted successfully!" });
+    res.json({ message: `Deleted row ${actualRowNumber} successfully!` });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
+
 
 
 // Edit existing row
