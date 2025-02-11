@@ -97,6 +97,50 @@ app.post("/add", async (req, res) => {
 });
 
 
+app.post("/delete", async (req, res) => {
+  try {
+    const { sheet, sku } = req.body;
+    if (!sheet || !sku) {
+      return res.status(400).json({ error: "Sheet and SKU are required" });
+    }
+
+    const sheets = await getSheetsClient();
+    const readResponse = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${sheet}!A:M`,
+    });
+
+    const rows = readResponse.data.values;
+    if (!rows) return res.status(404).json({ error: "No data found" });
+
+    let rowIndex = rows.findIndex(row => row[0] === sku);
+    if (rowIndex === -1) return res.status(404).json({ error: "SKU not found" });
+
+    rowIndex += 3; // Adjusting for 1-based index + header rows
+
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: {
+        requests: [
+          {
+            deleteDimension: {
+              range: {
+                sheetId: 0, // Adjust if using multiple sheets
+                dimension: "ROWS",
+                startIndex: rowIndex - 1, // Zero-based index
+                endIndex: rowIndex,
+              },
+            },
+          },
+        ],
+      },
+    });
+
+    res.json({ message: "Deleted successfully!" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 
 // Edit existing row
