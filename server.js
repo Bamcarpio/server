@@ -22,6 +22,13 @@ async function getSheetsClient() {
 
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 
+// Function to convert Google Drive file links to direct image URLs
+const convertDriveLink = (url) => {
+  if (!url) return ""; // Return empty if no URL
+  const match = url.match(/\/d\/(.*?)\/view/);
+  return match ? `https://drive.google.com/uc?export=view&id=${match[1]}` : url;
+};
+
 // Fetch data from Google Sheets with dynamic sheet name and range
 app.get("/data", async (req, res) => {
   try {
@@ -34,15 +41,24 @@ app.get("/data", async (req, res) => {
     const sheets = await getSheetsClient();
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${sheet}!${range}`, // Fixed template literal
+      range: `${sheet}!${range}`, // Ensure correct format
     });
 
-    res.json(response.data.values || []);
+    let data = response.data.values || [];
+
+    // Convert column J (index 9) from Google Drive URLs to direct image URLs
+    data = data.map(row => {
+      if (row[9]) row[9] = convertDriveLink(row[9]);
+      return row;
+    });
+
+    res.json(data);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
+// Add new product to Google Sheets
 app.post("/add", async (req, res) => {
   try {
     const {
@@ -73,19 +89,8 @@ app.post("/add", async (req, res) => {
       requestBody: {
         values: [
           [
-            sku,              
-            size,             
-            code,             
-            productName,      
-            smer,             
-            smerUpdatedPrice, 
-            "",               
-            size,             
-            kgaPrice,         
-            pictureUrl || "", 
-            shopLink,         
-            lazadaLink,       
-            tiktokLink        
+            sku, size, code, productName, smer, smerUpdatedPrice, "", size, kgaPrice, 
+            pictureUrl || "", shopLink, lazadaLink, tiktokLink
           ]
         ],
       },
@@ -97,6 +102,7 @@ app.post("/add", async (req, res) => {
   }
 });
 
+// Delete a product row by SKU
 app.post("/delete", async (req, res) => {
   try {
     const { sheet, sku } = req.body;
@@ -105,8 +111,6 @@ app.post("/delete", async (req, res) => {
     }
 
     const sheets = await getSheetsClient();
-
-    // Get the sheet ID dynamically
     const sheetMetadata = await sheets.spreadsheets.get({
       spreadsheetId: SPREADSHEET_ID,
     });
@@ -116,16 +120,14 @@ app.post("/delete", async (req, res) => {
 
     const sheetId = sheetInfo.properties.sheetId;
 
-    // Fetch all rows to find the exact SKU match
     const readResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${sheet}!A:M`, // Fixed template literal
+      range: `${sheet}!A:M`,
     });
 
     const rows = readResponse.data.values;
     if (!rows || rows.length === 0) return res.status(404).json({ error: "No data found" });
 
-    // Find the row index based on SKU
     let rowIndex = -1;
     for (let i = 0; i < rows.length; i++) {
       if (rows[i][0] === sku) {
@@ -136,10 +138,8 @@ app.post("/delete", async (req, res) => {
 
     if (rowIndex === -1) return res.status(404).json({ error: "SKU not found" });
 
-    // Convert to actual row number in Google Sheets (1-based index)
     const actualRowNumber = rowIndex + 1;
 
-    // Delete the exact row found
     await sheets.spreadsheets.batchUpdate({
       spreadsheetId: SPREADSHEET_ID,
       requestBody: {
@@ -147,10 +147,10 @@ app.post("/delete", async (req, res) => {
           {
             deleteDimension: {
               range: {
-                sheetId: sheetId, 
+                sheetId: sheetId,
                 dimension: "ROWS",
-                startIndex: actualRowNumber - 1, 
-                endIndex: actualRowNumber, 
+                startIndex: actualRowNumber - 1,
+                endIndex: actualRowNumber,
               },
             },
           },
@@ -164,6 +164,7 @@ app.post("/delete", async (req, res) => {
   }
 });
 
+// Edit an existing row
 app.post("/edit", async (req, res) => {
   try {
     const { sheet, id, text } = req.body;
@@ -172,7 +173,7 @@ app.post("/edit", async (req, res) => {
     const sheets = await getSheetsClient();
     const readResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${sheet}!A:B`, // Fixed template literal
+      range: `${sheet}!A:B`, 
     });
 
     const rows = readResponse.data.values;
@@ -185,7 +186,7 @@ app.post("/edit", async (req, res) => {
 
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${sheet}!B${rowIndex}`, // Fixed template literal
+      range: `${sheet}!B${rowIndex}`,
       valueInputOption: "RAW",
       requestBody: { values: [[text]] },
     });
